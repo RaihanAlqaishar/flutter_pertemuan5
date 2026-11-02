@@ -15,10 +15,29 @@ class _UserListScreenState extends State<UserListScreen> {
   List<User> _users = [];
   bool _isLoading = true;
   String? _errorMessage;
+
+  // // Latihan 4a: Gunakan TextEditingController untuk input pencarian
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
     _loadUsers();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // // Latihan 4b: Gunakan setState untuk update filter secara real-time
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text;
+    });
   }
 
   Future<void> _loadUsers() async {
@@ -42,6 +61,14 @@ class _UserListScreenState extends State<UserListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // // Latihan 4c: Gunakan where() untuk filter list berdasarkan nama atau email
+    final filteredUsers = _users.where((user) {
+      final nameLower = user.name.toLowerCase();
+      final emailLower = user.email.toLowerCase();
+      final queryLower = _searchQuery.toLowerCase();
+      return nameLower.contains(queryLower) || emailLower.contains(queryLower);
+    }).toList();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Daftar Pengguna'),
@@ -55,12 +82,38 @@ class _UserListScreenState extends State<UserListScreen> {
           ),
         ],
       ),
-      body: _buildBody(),
+      body: Column(
+        children: [
+          // // Latihan 4a: Tambahkan TextField di atas list
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Cari User',
+                hintText: 'Masukkan nama atau email...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+          Expanded(child: _buildBody(filteredUsers)),
+        ],
+      ),
     );
   }
 
-  Widget _buildBody() {
-    // Loading state
+  Widget _buildBody(List<User> filteredUsers) {
     if (_isLoading) {
       return const Center(
         child: Column(
@@ -73,7 +126,7 @@ class _UserListScreenState extends State<UserListScreen> {
         ),
       );
     }
-    // Error state
+
     if (_errorMessage != null) {
       return Center(
         child: Padding(
@@ -104,17 +157,21 @@ class _UserListScreenState extends State<UserListScreen> {
         ),
       );
     }
-    // Empty state
+
     if (_users.isEmpty) {
       return const Center(child: Text('Tidak ada data pengguna'));
     }
-    // Success state
+
+    if (filteredUsers.isEmpty) {
+      return const Center(child: Text('Pencarian tidak ditemukan'));
+    }
+
     return RefreshIndicator(
       onRefresh: _loadUsers,
       child: ListView.builder(
-        itemCount: _users.length,
+        itemCount: filteredUsers.length,
         itemBuilder: (context, index) {
-          final user = _users[index];
+          final user = filteredUsers[index];
           return UserCard(
             user: user,
             onTap: () {
@@ -139,7 +196,6 @@ class _UserListScreenState extends State<UserListScreen> {
               user.name,
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-
             const SizedBox(height: 8),
             Text('Username: ${user.username}'),
             Text('Email: ${user.email}'),
